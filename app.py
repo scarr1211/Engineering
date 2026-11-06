@@ -66,7 +66,7 @@ routes_data = {
     "Base_Time_Min": [15.0, 26.0, 20.0],
     "Base_Congestion": [0.4, 0.2, 0.5], 
     "Base_Crash_Risk": [20, 10, 15],
-    "Base_Emissions_Co2": [4.5, 6.0, 5.0] # kg of CO2 per trip average
+    "Base_Emissions_Co2": [45, 60, 50]
 }
 
 df = pd.DataFrame(routes_data)
@@ -97,7 +97,7 @@ elif scenario == "🌨️ Severe Winter Storm / Ice Storm":
     emissions_multiplier = 1.5
 
 elif scenario == "🚇 Metro / Transit Strike (Surge)":
-    df['Base_Congestion'] += 0.4  # Everyone forced into cars
+    df['Base_Congestion'] += 0.4  
     time_multiplier = 1.5
     emissions_multiplier = 1.8
 
@@ -110,15 +110,14 @@ elif signal_strategy == "Manual Flush (Priority Flow)":
     df.loc[df['Route'] == "Route 3: Urban Grid (Downtown)", 'Base_Congestion'] -= 0.25
 
 if speed_control == "Dynamic Variable Speed Limits (VSL)":
-    crash_multiplier *= 0.75  # Calms traffic down, reduces severe crashes
-    df['Base_Time_Min'] *= 1.15 # Slight time penalty for lower speeds
+    crash_multiplier *= 0.75  
+    df['Base_Time_Min'] *= 1.15 
 
 if policy_tool == "Dynamic Congestion Pricing (Toll Highway)":
-    # Shifts traffic away from highway onto bypass
     df.loc[df['Route'] == "Route 1: Major Highway", 'Base_Congestion'] -= 0.25
     df.loc[df['Route'] == "Route 2: Curvy Bypass", 'Base_Congestion'] += 0.15
 elif policy_tool == "Emergency Shuttle Bus Deployment":
-    df['Base_Congestion'] -= 0.15  # Takes cars off the road globally
+    df['Base_Congestion'] -= 0.15  
 
 # Final Calculations
 df['Simulated_Travel_Time'] = df['Base_Time_Min'] * time_multiplier
@@ -128,12 +127,14 @@ df['Total_Emissions_Co2'] = df['Base_Emissions_Co2'] * (df['Congestion_Percentag
 
 # --- HANDLE LOGGING ---
 if log_button:
+    trial_num = len(st.session_state.decision_log) + 1
     avg_time = df['Simulated_Travel_Time'].mean()
     max_congestion = df['Congestion_Percentage'].max()
     total_safety = df['Safety_Risk_Score'].sum()
     total_emissions = df['Total_Emissions_Co2'].sum()
     
     log_entry = {
+        "Trial": f"Trial {trial_num}",
         "Scenario": scenario,
         "Signals": signal_strategy,
         "Speed Control": speed_control,
@@ -144,68 +145,126 @@ if log_button:
         "CO2 Emissions (kg)": round(total_emissions, 1)
     }
     st.session_state.decision_log.append(log_entry)
-    st.sidebar.success("Trial successfully logged!")
+    st.sidebar.success(f"Trial {trial_num} logged successfully!")
 
-# --- MAIN METRICS DISPLAY ---
-col1, col2, col3 = st.columns(3)
+# --- ORGANIZE INTO TABS ---
+tab1, tab2, tab3, tab4 = st.tabs([
+    "🚦 Live Route Status", 
+    "📊 Delay vs. Safety Analysis", 
+    "🌱 Environmental & Emissions", 
+    "📋 Student Decision Log & Graphs"
+])
 
-for i, col in enumerate([col1, col2, col3]):
-    with col:
-        st.subheader(df.loc[i, "Route"])
-        st.write(df.loc[i, "Description"])
-        st.metric(label="Travel Time", value=f"{df.loc[i, 'Simulated_Travel_Time']:.1f} mins")
-        st.metric(label="Congestion Level", value=f"{df.loc[i, 'Congestion_Percentage']:.0f}%")
-        st.metric(label="Safety Risk Index", value=f"{df.loc[i, 'Safety_Risk_Score']:.1f}")
-        st.metric(label="Est. CO2 Emissions", value=f"{df.loc[i, 'Total_Emissions_Co2']:.1f} kg")
-        st.markdown("---")
+# --- TAB 1: LIVE ROUTE STATUS ---
+with tab1:
+    st.subheader("Current Corridor Status")
+    col1, col2, col3 = st.columns(3)
 
-# --- VISUALIZATION ---
-st.subheader("📊 System Trade-Off Analysis: Delay vs. Safety Risk")
+    for i, col in enumerate([col1, col2, col3]):
+        with col:
+            st.markdown(f"### {df.loc[i, 'Route']}")
+            st.write(df.loc[i, "Description"])
+            st.metric(label="Travel Time", value=f"{df.loc[i, 'Simulated_Travel_Time']:.1f} mins", delta=None)
+            st.metric(label="Congestion Level", value=f"{df.loc[i, 'Congestion_Percentage']:.0f}%")
+            st.metric(label="Safety Risk Index", value=f"{df.loc[i, 'Safety_Risk_Score']:.1f}")
+            st.metric(label="Est. CO2 Emissions", value=f"{df.loc[i, 'Total_Emissions_Co2']:.1f} kg")
+            st.markdown("---")
 
-fig = px.scatter(
-    df, 
-    x="Simulated_Travel_Time", 
-    y="Safety_Risk_Score", 
-    size="Congestion_Percentage", 
-    color="Route",
-    hover_name="Route",
-    text="Route",
-    labels={"Simulated_Travel_Time": "Travel Time (Minutes)", "Safety_Risk_Score": "Safety Risk Index"},
-    title="Network Performance (Bubble size = Congestion Level)"
-)
-fig.update_traces(textposition='top center')
-fig.update_layout(height=500)
+# --- TAB 2: DELAY VS SAFETY ANALYSIS ---
+with tab2:
+    st.subheader("System Trade-Off Analysis: Delay vs. Safety Risk")
+    fig = px.scatter(
+        df, 
+        x="Simulated_Travel_Time", 
+        y="Safety_Risk_Score", 
+        size="Congestion_Percentage", 
+        color="Route",
+        hover_name="Route",
+        text="Route",
+        labels={"Simulated_Travel_Time": "Travel Time (Minutes)", "Safety_Risk_Score": "Safety Risk Index"},
+        title="Network Performance (Bubble size = Congestion Level)"
+    )
+    fig.update_traces(textposition='top center')
+    fig.update_layout(height=500)
+    st.plotly_chart(fig, use_container_width=True)
 
-st.plotly_chart(fig, use_container_width=True)
-
-# --- STUDENT DECISION LOG ---
-st.markdown("---")
-st.subheader("📋 Student Decision Log & Environmental Report")
-
-if len(st.session_state.decision_log) > 0:
-    log_df = pd.DataFrame(st.session_state.decision_log)
-    st.dataframe(log_df, use_container_width=True)
+# --- TAB 3: ENVIRONMENTAL & EMISSIONS ---
+with tab3:
+    st.subheader("🌱 Environmental Impact & Carbon Output")
+    st.markdown("Stop-and-go traffic and severe congestion drastically increase fuel consumption and greenhouse gas emissions ($CO_2$).")
     
-    csv_data = log_df.to_csv(index=False).encode('utf-8')
-    col_dl1, col_dl2 = st.columns([1, 4])
-    with col_dl1:
-        st.download_button(
-            label="📥 Download Report (.csv)",
-            data=csv_data,
-            file_name="advanced_traffic_report.csv",
-            mime="text/csv",
+    fig_co2 = px.bar(
+        df, 
+        x="Route", 
+        y="Total_Emissions_Co2", 
+        color="Route",
+        text_auto=".1f",
+        labels={"Total_Emissions_Co2": "Total CO2 Emissions (kg)", "Route": "Transportation Route"},
+        title="Carbon Output Breakdown by Route Under Current Conditions"
+    )
+    fig_co2.update_layout(height=450, showlegend=False)
+    st.plotly_chart(fig_co2, use_container_width=True)
+    
+    total_city_co2 = df['Total_Emissions_Co2'].sum()
+    st.metric(label="Total Network Carbon Footprint", value=f"{total_city_co2:.1f} kg CO2")
+
+# --- TAB 4: STUDENT DECISION LOG & GRAPHS ---
+with tab4:
+    st.subheader("📋 Student Decision Log & Strategy Comparison")
+    
+    if len(st.session_state.decision_log) > 0:
+        log_df = pd.DataFrame(st.session_state.decision_log)
+        
+        # Display Data Table
+        st.markdown("#### Logged Trials Data Table")
+        st.dataframe(log_df, use_container_width=True)
+        
+        st.markdown("---")
+        st.markdown("#### 📊 Strategy Comparison Graphs")
+        st.markdown("Compare how your different engineering trials performed against each other across all key metrics:")
+        
+        # Metric Selector for the Comparison Graph
+        metric_to_compare = st.selectbox(
+            "Select Metric to Compare Across Trials", 
+            ["Avg Time (min)", "Max Congestion (%)", "Safety Risk Score", "CO2 Emissions (kg)"]
         )
-    with col_dl2:
-        if st.button("🗑️ Clear Log"):
-            st.session_state.decision_log = []
-            st.rerun()
-else:
-    st.info("Test out different severe weather or strike scenarios combined with toll policies and signal timing, then click **'📝 Log Strategy'** to build your report!")
+        
+        # Bar chart comparing the trials for the selected metric
+        fig_compare = px.bar(
+            log_df,
+            x="Trial",
+            y=metric_to_compare,
+            color="Scenario",
+            text=metric_to_compare,
+            hover_data=["Signals", "Speed Control", "Policy"],
+            title=f"Comparison of Logged Strategies: {metric_to_compare}"
+        )
+        fig_compare.update_traces(textposition='outside')
+        fig_compare.update_layout(height=450)
+        st.plotly_chart(fig_compare, use_container_width=True)
+        
+        # Download and Clear options
+        csv_data = log_df.to_csv(index=False).encode('utf-8')
+        col_dl1, col_dl2 = st.columns([1, 4])
+        with col_dl1:
+            st.download_button(
+                label="📥 Download Report (.csv)",
+                data=csv_data,
+                file_name="advanced_traffic_report.csv",
+                mime="text/csv",
+            )
+        with col_dl2:
+            if st.button("🗑️ Clear Log"):
+                st.session_state.decision_log = []
+                st.rerun()
+    else:
+        st.info("Test out different scenarios and policies, then click **'📝 Log Strategy & System Data'** in the sidebar to populate your comparison graphs!")
 
 # --- CHALLENGES ---
+st.markdown("---")
 with st.expander("🎓 Advanced Systems Engineering Missions"):
     st.markdown("""
-    * **Mission 1 (The Blizzard Challenge):** Set the scenario to **Severe Winter Storm**. Notice how dangerous the highway becomes. Test whether **Dynamic Variable Speed Limits (VSL)** successfully lower the safety risk score, and calculate the time trade-off.
-    * **Mission 2 (The Transit Strike Crisis):** During a **Metro / Transit Strike**, congestion spikes everywhere. Compare what happens to $CO_2$ emissions if you use **Congestion Pricing** versus doing nothing. How do economic policies protect air quality?
-    * **Mission 3 (The Multi-Objective Dilemma):** As chief city planners, you can't minimize everything at once. Find a strategy combination that keeps safety high and emissions low *without* doubling the average travel time. Prove it using your downloaded CSV data!
+    * **Mission 1 (The Blizzard Challenge):** Set the scenario to **Severe Winter Storm**. Log a trial with *Standard Speed Limits*, then log a second trial with *Dynamic Variable Speed Limits (VSL)*. Check the **Student Decision Log & Graphs** tab to visually compare how much VSL dropped your Safety Risk score!
+    * **Mission 2 (The Transit Strike Crisis):** During a **Metro / Transit Strike**, compare CO2 emissions across multiple policy choices using the comparison bar chart.
+    * **Mission 3 (The Multi-Objective Dilemma):** Use the dropdown menu in the comparison tab to cycle through Travel Time, Congestion, Safety, and Emissions. Which trial was your most balanced engineering success? Prove it using the charts and download your CSV report.
     """)
