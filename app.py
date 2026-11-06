@@ -6,44 +6,50 @@ import numpy as np
 # Page configuration
 st.set_page_config(page_title="Smart City Traffic Operations Center", layout="wide")
 
-st.title("🏙️ Traffic Operations Center: City Network Manager")
+st.title("🏙️ Traffic Operations Center: Advanced Systems Manager")
 st.markdown("""
-Welcome to the TOC, Engineers! You are managing the city's main transportation corridor connecting **Downtown to the Suburbs**. 
-Use the control panel on the sidebar to deploy **Signal Timing Strategies** and **Incident Management Protocols** to minimize delays and prevent gridlock!
+Welcome back, Chief Engineers! The city is facing complex, multi-layered crises today. 
+Use your advanced control panel to balance **Travel Time**, **Safety Risk**, **Budget/Pricing**, and **Environmental Emissions**.
 """)
 
-# --- INITIALIZE SESSION STATE FOR LOGGING ---
+# --- INITIALIZE SESSION STATE ---
 if 'decision_log' not in st.session_state:
     st.session_state.decision_log = []
 
-# --- SIDEBAR CONTROLS (ENGINEER PERSPECTIVE) ---
-st.sidebar.header("🎛️ TOC Incident & Control Panel")
+# --- SIDEBAR CONTROLS ---
+st.sidebar.header("🎛️ Advanced TOC Control Panel")
 
 scenario = st.sidebar.selectbox(
-    "Active City Event / Incident", 
+    "Active City Event / Crisis", 
     [
         "Normal Operations", 
         "🎸 Major Concert at Stadium (Peak Outflow)", 
         "💥 Major Crash on Highway", 
-        "🚧 Construction Lane Closure on Urban Grid"
+        "🚧 Construction Lane Closure on Urban Grid",
+        "🌨️ Severe Winter Storm / Ice Storm",
+        "🚇 Metro / Transit Strike (Surge)"
     ]
 )
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("Engineer Interventions")
+st.sidebar.subheader("Infrastructure & Policy Controls")
+
 signal_strategy = st.sidebar.selectbox(
     "Urban Grid Signal Timing", 
     ["Standard Fixed Timing", "Green Wave (Synchronized)", "Manual Flush (Priority Flow)"]
 )
 
-incident_response = st.sidebar.selectbox(
-    "Incident Management Protocol", 
-    ["Do Nothing (Wait for Clearance)", "Deploy Variable Message Signs (Reroute Traffic)", "Emergency Lane Reversal / Closure"]
+speed_control = st.sidebar.selectbox(
+    "Highway Speed Management", 
+    ["Standard Speed Limits", "Dynamic Variable Speed Limits (VSL)", "Speed Reduction Warning Signs"]
 )
 
-st.sidebar.markdown("---")
-# Button to record decisions
-log_button = st.sidebar.button("📝 Log Current Strategy & Results", type="primary")
+policy_tool = st.sidebar.selectbox(
+    "Economic / Transit Policy", 
+    ["No Tolls (Free Flow)", "Dynamic Congestion Pricing (Toll Highway)", "Emergency Shuttle Bus Deployment"]
+)
+
+log_button = st.sidebar.button("📝 Log Strategy & System Data", type="primary")
 
 # --- BASE ROUTE DATA MODEL ---
 routes_data = {
@@ -59,15 +65,16 @@ routes_data = {
     ],
     "Base_Time_Min": [15.0, 26.0, 20.0],
     "Base_Congestion": [0.4, 0.2, 0.5], 
-    "Base_Crash_Risk": [20, 10, 15]   
+    "Base_Crash_Risk": [20, 10, 15],
+    "Base_Emissions_Co2": [4.5, 6.0, 5.0] # kg of CO2 per trip average
 }
 
 df = pd.DataFrame(routes_data)
 
-# --- SCENARIO & INTERVENTION LOGIC ---
+# --- SCENARIO LOGIC ---
 time_multiplier = 1.0
-congestion_adder = 0.0
 crash_multiplier = 1.0
+emissions_multiplier = 1.0
 
 if scenario == "🎸 Major Concert at Stadium (Peak Outflow)":
     df.loc[df['Route'] == "Route 3: Urban Grid (Downtown)", 'Base_Congestion'] += 0.45
@@ -77,12 +84,24 @@ if scenario == "🎸 Major Concert at Stadium (Peak Outflow)":
 elif scenario == "💥 Major Crash on Highway":
     df.loc[df['Route'] == "Route 1: Major Highway", 'Base_Time_Min'] *= 2.5
     df.loc[df['Route'] == "Route 1: Major Highway", 'Base_Congestion'] = 0.95
-    crash_multiplier = 2.0
+    crash_multiplier = 2.2
 
 elif scenario == "🚧 Construction Lane Closure on Urban Grid":
     df.loc[df['Route'] == "Route 3: Urban Grid (Downtown)", 'Base_Time_Min'] *= 1.6
     df.loc[df['Route'] == "Route 3: Urban Grid (Downtown)", 'Base_Congestion'] = 0.8
 
+elif scenario == "🌨️ Severe Winter Storm / Ice Storm":
+    time_multiplier = 1.8
+    crash_multiplier = 3.0
+    df['Base_Congestion'] += 0.3
+    emissions_multiplier = 1.5
+
+elif scenario == "🚇 Metro / Transit Strike (Surge)":
+    df['Base_Congestion'] += 0.4  # Everyone forced into cars
+    time_multiplier = 1.5
+    emissions_multiplier = 1.8
+
+# --- INTERVENTION LOGIC ---
 if signal_strategy == "Green Wave (Synchronized)":
     df.loc[df['Route'] == "Route 3: Urban Grid (Downtown)", 'Base_Time_Min'] *= 0.8
     df.loc[df['Route'] == "Route 3: Urban Grid (Downtown)", 'Base_Congestion'] -= 0.15
@@ -90,46 +109,58 @@ elif signal_strategy == "Manual Flush (Priority Flow)":
     df.loc[df['Route'] == "Route 3: Urban Grid (Downtown)", 'Base_Time_Min'] *= 0.7
     df.loc[df['Route'] == "Route 3: Urban Grid (Downtown)", 'Base_Congestion'] -= 0.25
 
-if incident_response == "Deploy Variable Message Signs (Reroute Traffic)":
-    df['Base_Congestion'] = df['Base_Congestion'] * 0.85
-    df.loc[df['Route'] == "Route 2: Curvy Bypass", 'Base_Time_Min'] *= 0.9
+if speed_control == "Dynamic Variable Speed Limits (VSL)":
+    crash_multiplier *= 0.75  # Calms traffic down, reduces severe crashes
+    df['Base_Time_Min'] *= 1.15 # Slight time penalty for lower speeds
 
+if policy_tool == "Dynamic Congestion Pricing (Toll Highway)":
+    # Shifts traffic away from highway onto bypass
+    df.loc[df['Route'] == "Route 1: Major Highway", 'Base_Congestion'] -= 0.25
+    df.loc[df['Route'] == "Route 2: Curvy Bypass", 'Base_Congestion'] += 0.15
+elif policy_tool == "Emergency Shuttle Bus Deployment":
+    df['Base_Congestion'] -= 0.15  # Takes cars off the road globally
+
+# Final Calculations
 df['Simulated_Travel_Time'] = df['Base_Time_Min'] * time_multiplier
 df['Congestion_Percentage'] = np.clip(df['Base_Congestion'], 0.05, 0.98) * 100
 df['Safety_Risk_Score'] = df['Base_Crash_Risk'] * crash_multiplier
+df['Total_Emissions_Co2'] = df['Base_Emissions_Co2'] * (df['Congestion_Percentage'] / 50) * emissions_multiplier
 
-# --- HANDLE LOGGING ACTION ---
+# --- HANDLE LOGGING ---
 if log_button:
-    # Save a snapshot of this trial into session state
     avg_time = df['Simulated_Travel_Time'].mean()
     max_congestion = df['Congestion_Percentage'].max()
-    total_safety_risk = df['Safety_Risk_Score'].sum()
+    total_safety = df['Safety_Risk_Score'].sum()
+    total_emissions = df['Total_Emissions_Co2'].sum()
     
     log_entry = {
         "Scenario": scenario,
-        "Signal Strategy": signal_strategy,
-        "Incident Protocol": incident_response,
-        "Avg Travel Time (min)": round(avg_time, 1),
+        "Signals": signal_strategy,
+        "Speed Control": speed_control,
+        "Policy": policy_tool,
+        "Avg Time (min)": round(avg_time, 1),
         "Max Congestion (%)": round(max_congestion, 1),
-        "Total Safety Risk Score": round(total_safety_risk, 1)
+        "Safety Risk Score": round(total_safety, 1),
+        "CO2 Emissions (kg)": round(total_emissions, 1)
     }
     st.session_state.decision_log.append(log_entry)
-    st.sidebar.success("Strategy logged successfully!")
+    st.sidebar.success("Trial successfully logged!")
 
-# --- MAIN DASHBOARD LAYOUT ---
+# --- MAIN METRICS DISPLAY ---
 col1, col2, col3 = st.columns(3)
 
 for i, col in enumerate([col1, col2, col3]):
     with col:
         st.subheader(df.loc[i, "Route"])
         st.write(df.loc[i, "Description"])
-        st.metric(label="Network Travel Time", value=f"{df.loc[i, 'Simulated_Travel_Time']:.1f} mins")
+        st.metric(label="Travel Time", value=f"{df.loc[i, 'Simulated_Travel_Time']:.1f} mins")
         st.metric(label="Congestion Level", value=f"{df.loc[i, 'Congestion_Percentage']:.0f}%")
-        st.metric(label="Incident / Safety Risk Score", value=f"{df.loc[i, 'Safety_Risk_Score']:.1f}")
+        st.metric(label="Safety Risk Index", value=f"{df.loc[i, 'Safety_Risk_Score']:.1f}")
+        st.metric(label="Est. CO2 Emissions", value=f"{df.loc[i, 'Total_Emissions_Co2']:.1f} kg")
         st.markdown("---")
 
-# --- VISUALIZATIONS ---
-st.subheader("📊 TOC System Performance: Delay vs. Safety Risk")
+# --- VISUALIZATION ---
+st.subheader("📊 System Trade-Off Analysis: Delay vs. Safety Risk")
 
 fig = px.scatter(
     df, 
@@ -140,30 +171,28 @@ fig = px.scatter(
     hover_name="Route",
     text="Route",
     labels={"Simulated_Travel_Time": "Travel Time (Minutes)", "Safety_Risk_Score": "Safety Risk Index"},
-    title="Network Corridor Performance (Bubble size = Congestion Level)"
+    title="Network Performance (Bubble size = Congestion Level)"
 )
 fig.update_traces(textposition='top center')
 fig.update_layout(height=500)
 
 st.plotly_chart(fig, use_container_width=True)
 
-# --- STUDENT DECISION LOG & REPORT SECTION ---
+# --- STUDENT DECISION LOG ---
 st.markdown("---")
-st.subheader("📋 Student Decision Log & Performance Report")
+st.subheader("📋 Student Decision Log & Environmental Report")
 
 if len(st.session_state.decision_log) > 0:
     log_df = pd.DataFrame(st.session_state.decision_log)
     st.dataframe(log_df, use_container_width=True)
     
-    # Convert dataframe to CSV for downloading
     csv_data = log_df.to_csv(index=False).encode('utf-8')
-    
     col_dl1, col_dl2 = st.columns([1, 4])
     with col_dl1:
         st.download_button(
             label="📥 Download Report (.csv)",
             data=csv_data,
-            file_name="traffic_engineering_report.csv",
+            file_name="advanced_traffic_report.csv",
             mime="text/csv",
         )
     with col_dl2:
@@ -171,12 +200,12 @@ if len(st.session_state.decision_log) > 0:
             st.session_state.decision_log = []
             st.rerun()
 else:
-    st.info("No strategies logged yet. Try out different combinations in the sidebar and click **'📝 Log Current Strategy & Results'** to record your findings!")
+    st.info("Test out different severe weather or strike scenarios combined with toll policies and signal timing, then click **'📝 Log Strategy'** to build your report!")
 
-# --- CLASSROOM ENGINEERING CHALLENGES ---
-with st.expander("🎓 Traffic Engineering Mission Prompts for Students"):
+# --- CHALLENGES ---
+with st.expander("🎓 Advanced Systems Engineering Missions"):
     st.markdown("""
-    * **Mission 1 (The Stadium Event):** Switch the scenario to **Major Concert at Stadium**. Watch how the Urban Grid locks up. Now, test different **Signal Timing Strategies**. Log your results to see which strategy successfully lowers congestion without shifting all the risk to the highway.
-    * **Mission 2 (The Highway Crisis):** Select **Major Crash on Highway**. Look at how high travel times shoot up. Test *Variable Message Sign Rerouting* vs *Do Nothing* and log both trials to compare the data side-by-side.
-    * **Mission 3 (The Trade-Off Dilemma):** Export your CSV report at the end of class and use the data to write a brief engineering memo defending your favorite control strategy.
+    * **Mission 1 (The Blizzard Challenge):** Set the scenario to **Severe Winter Storm**. Notice how dangerous the highway becomes. Test whether **Dynamic Variable Speed Limits (VSL)** successfully lower the safety risk score, and calculate the time trade-off.
+    * **Mission 2 (The Transit Strike Crisis):** During a **Metro / Transit Strike**, congestion spikes everywhere. Compare what happens to $CO_2$ emissions if you use **Congestion Pricing** versus doing nothing. How do economic policies protect air quality?
+    * **Mission 3 (The Multi-Objective Dilemma):** As chief city planners, you can't minimize everything at once. Find a strategy combination that keeps safety high and emissions low *without* doubling the average travel time. Prove it using your downloaded CSV data!
     """)
