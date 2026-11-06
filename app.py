@@ -4,61 +4,98 @@ import pandas as pd
 import numpy as np
 
 # Page configuration
-st.set_page_config(page_title="Transportation Route Optimizer", layout="wide")
+st.set_page_config(page_title="Smart City Traffic Operations Center", layout="wide")
 
-st.title("🚦 Smart City Transportation Dashboard")
+st.title("🏙️ Traffic Operations Center: City Network Manager")
 st.markdown("""
-Welcome, Traffic Engineers! Your goal is to analyze three different routes from **Home (Point A)** to **School/Work (Point B)**. 
-Use the controls on the sidebar to change environmental conditions and see how each route performs in terms of **Travel Time**, **Congestion Risk**, and **Crash History**.
+Welcome to the TOC, Engineers! You are managing the city's main transportation corridor connecting **Downtown to the Suburbs**. 
+Today, unexpected events are happening. Use the control panel on the sidebar to deploy **Signal Timing Strategies** and **Incident Management Protocols** to minimize delays and prevent gridlock!
 """)
 
-# --- SIDEBAR CONTROLS ---
-st.sidebar.header("🎛️ Simulation Controls")
-time_of_day = st.sidebar.selectbox("Time of Day", ["Off-Peak / Midday", "Morning Rush Hour", "Late Night"])
-weather = st.sidebar.selectbox("Weather Conditions", ["Clear & Dry", "Heavy Rain / Snow", "Foggy"])
-accident_factor = st.sidebar.slider("Driver Aggressiveness / Incident Multiplier", 0.5, 2.0, 1.0, 0.1)
+# --- SIDEBAR CONTROLS (ENGINEER PERSPECTIVE) ---
+st.sidebar.header("🎛️ TOC Incident & Control Panel")
 
-# --- ROUTE DATA MODEL ---
+scenario = st.sidebar.selectbox(
+    "Active City Event / Incident", 
+    [
+        "Normal Operations", 
+        "🎸 Major Concert at Stadium (Peak Outflow)", 
+        "💥 Major Crash on Highway", 
+        "🚧 Construction Lane Closure on Urban Grid"
+    ]
+)
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("Engineer Interventions")
+signal_strategy = st.sidebar.selectbox(
+    "Urban Grid Signal Timing", 
+    ["Standard Fixed Timing", "Green Wave (Synchronized)", "Manual Flush (Priority Flow)"]
+)
+
+incident_response = st.sidebar.selectbox(
+    "Incident Management Protocol", 
+    ["Do Nothing (Wait for Clearance)", "Deploy Variable Message Signs (Reroute Traffic)", "Emergency Lane Reversal / Closure"]
+)
+
+# --- BASE ROUTE DATA MODEL ---
 routes_data = {
     "Route": [
-        "Route 1: Straight Highway", 
-        "Route 2: Curvy Scenic Road", 
-        "Route 3: Urban Grid (Intersections)"
+        "Route 1: Major Highway", 
+        "Route 2: Curvy Bypass", 
+        "Route 3: Urban Grid (Downtown)"
     ],
     "Description": [
-        "High speed limit, 0 intersections, high traffic volume.",
-        "Winding roads, low traffic, longer distance, low crash rate.",
-        "Multiple traffic lights, pedestrian crossings, moderate speed."
+        "High-speed, multi-lane expressway. Vulnerable to sudden bottleneck crashes.",
+        "Winding secondary road. Lower speed limit, acts as a natural bypass.",
+        "Dense network with 9 traffic lights and pedestrian crossings."
     ],
-    "Base_Time_Min": [15.0, 28.0, 22.0],
-    "Base_Congestion_Risk": [0.7, 0.1, 0.5],
-    "Base_Crash_History_Per_Year": [45, 12, 28],
-    "Intersections": [0, 1, 9]
+    "Base_Time_Min": [15.0, 26.0, 20.0],
+    "Base_Congestion": [0.4, 0.2, 0.5], # 0 to 1 scale
+    "Base_Crash_Risk": [20, 10, 15]   # Arbitrary safety risk index
 }
 
 df = pd.DataFrame(routes_data)
 
-# --- DYNAMIC ADJUSTMENTS BASED ON CONTROLS ---
+# --- SCENARIO & INTERVENTION LOGIC ---
 time_multiplier = 1.0
 congestion_adder = 0.0
-if time_of_day == "Morning Rush Hour":
-    time_multiplier = 1.6
-    congestion_adder = 0.25
-elif time_of_day == "Late Night":
-    time_multiplier = 0.8
-    congestion_adder = -0.1
+crash_multiplier = 1.0
 
-weather_multiplier = 1.0
-if weather == "Heavy Rain / Snow":
-    weather_multiplier = 1.4
-elif weather == "Foggy":
-    weather_multiplier = 1.2
+# 1. Apply Scenarios
+if scenario == "🎸 Major Concert at Stadium (Peak Outflow)":
+    # Heavily impacts Urban Grid and Highway near stadium
+    df.loc[df['Route'] == "Route 3: Urban Grid (Downtown)", 'Base_Congestion'] += 0.45
+    df.loc[df['Route'] == "Route 1: Major Highway", 'Base_Congestion'] += 0.25
+    time_multiplier = 1.4
 
-df['Expected_Time'] = df['Base_Time_Min'] * time_multiplier * weather_multiplier
-np.random.seed(42)
-df['Simulated_Time'] = df['Expected_Time'] + np.random.uniform(-2, 3, len(df))
-df['Congestion_Probability'] = np.clip(df['Base_Congestion_Risk'] + congestion_adder, 0.05, 0.95) * 100
-df['Adjusted_Crash_Risk'] = df['Base_Crash_History_Per_Year'] * weather_multiplier * accident_factor
+elif scenario == "💥 Major Crash on Highway":
+    # Major bottleneck on Highway, forces traffic onto alternatives
+    df.loc[df['Route'] == "Route 1: Major Highway", 'Base_Time_Min'] *= 2.5
+    df.loc[df['Route'] == "Route 1: Major Highway", 'Base_Congestion'] = 0.95
+    crash_multiplier = 2.0
+
+elif scenario == "🚧 Construction Lane Closure on Urban Grid":
+    df.loc[df['Route'] == "Route 3: Urban Grid (Downtown)", 'Base_Time_Min'] *= 1.6
+    df.loc[df['Route'] == "Route 3: Urban Grid (Downtown)", 'Base_Congestion'] = 0.8
+
+# 2. Apply Engineer Interventions
+if signal_strategy == "Green Wave (Synchronized)":
+    # Improves urban grid flow significantly
+    df.loc[df['Route'] == "Route 3: Urban Grid (Downtown)", 'Base_Time_Min'] *= 0.8
+    df.loc[df['Route'] == "Route 3: Urban Grid (Downtown)", 'Base_Congestion'] -= 0.15
+elif signal_strategy == "Manual Flush (Priority Flow)":
+    df.loc[df['Route'] == "Route 3: Urban Grid (Downtown)", 'Base_Time_Min'] *= 0.7
+    df.loc[df['Route'] == "Route 3: Urban Grid (Downtown)", 'Base_Congestion'] -= 0.25
+
+if incident_response == "Deploy Variable Message Signs (Reroute Traffic)":
+    # Alleviates the worst-hit route by spreading traffic across the bypass
+    df.loc['Base_Congestion'] = df['Base_Congestion'] * 0.85
+    df.loc[df['Route'] == "Route 2: Curvy Bypass", 'Base_Time_Min'] *= 0.9  # smoother flow
+
+# Final calculations
+df['Simulated_Travel_Time'] = df['Base_Time_Min'] * time_multiplier
+df['Congestion_Percentage'] = np.clip(df['Base_Congestion'], 0.05, 0.98) * 100
+df['Safety_Risk_Score'] = df['Base_Crash_Risk'] * crash_multiplier
 
 # --- MAIN DASHBOARD LAYOUT ---
 col1, col2, col3 = st.columns(3)
@@ -67,34 +104,34 @@ for i, col in enumerate([col1, col2, col3]):
     with col:
         st.subheader(df.loc[i, "Route"])
         st.write(df.loc[i, "Description"])
-        st.metric(label="Estimated Travel Time", value=f"{df.loc[i, 'Simulated_Time']:.1f} mins")
-        st.metric(label="Congestion Probability", value=f"{df.loc[i, 'Congestion_Probability']:.0f}%")
-        st.metric(label="Annual Crash History Index", value=f"{df.loc[i, 'Adjusted_Crash_Risk']:.1f}")
+        st.metric(label="Network Travel Time", value=f"{df.loc[i, 'Simulated_Travel_Time']:.1f} mins")
+        st.metric(label="Congestion Level", value=f"{df.loc[i, 'Congestion_Percentage']:.0f}%")
+        st.metric(label="Incident / Safety Risk Score", value=f"{df.loc[i, 'Safety_Risk_Score']:.1f}")
         st.markdown("---")
 
 # --- VISUALIZATIONS ---
-st.subheader("📊 Trade-off Analysis: Time vs. Safety")
+st.subheader("📊 TOC System Performance: Delay vs. Safety Risk")
 
 fig = px.scatter(
     df, 
-    x="Simulated_Time", 
-    y="Adjusted_Crash_Risk", 
-    size="Congestion_Probability", 
+    x="Simulated_Travel_Time", 
+    y="Safety_Risk_Score", 
+    size="Congestion_Percentage", 
     color="Route",
     hover_name="Route",
     text="Route",
-    labels={"Simulated_Time": "Expected Travel Time (Minutes)", "Adjusted_Crash_Risk": "Crash Risk Index"},
-    title="Route Comparison Bubble Chart (Bubble size = Congestion Probability)"
+    labels={"Simulated_Travel_Time": "Travel Time (Minutes)", "Safety_Risk_Score": "Safety Risk Index"},
+    title="Network Corridor Performance (Bubble size = Congestion Level)"
 )
 fig.update_traces(textposition='top center')
 fig.update_layout(height=500)
 
 st.plotly_chart(fig, use_container_width=True)
 
-# --- CLASSROOM CHALLENGE SECTION ---
-with st.expander("🎓 Engineering Challenge Prompts for Students"):
+# --- CLASSROOM ENGINEERING CHALLENGES ---
+with st.expander("🎓 Traffic Engineering Mission Prompts for Students"):
     st.markdown("""
-    * **Scenario A (The Speed Demon):** If a commuter values time above everything else, which route should they pick during **Morning Rush Hour**? What is the hidden cost?
-    * **Scenario B (Weather Emergency):** Switch the weather to **Heavy Rain / Snow**. Notice how Route 1 (Highway) changes compared to Route 2 (Curvy). Why do highways become much more dangerous in bad weather?
-    * **Scenario C (Infrastructure Fix):** Imagine you are city planners. If you have a budget to add smart traffic lights to Route 3 or widen Route 1, which project gives the best safety-to-time ratio?
+    * **Mission 1 (The Stadium Event):** Switch the scenario to **Major Concert at Stadium**. Watch how the Urban Grid locks up. Now, test different **Signal Timing Strategies**. Which strategy successfully lowers congestion without shifting all the risk to the highway?
+    * **Mission 2 (The Highway Crisis):** Select **Major Crash on Highway**. Look at how high the travel time shoots up. If you choose *Do Nothing*, what happens to secondary roads? Now test *Variable Message Sign Rerouting*—how does active intervention save the system?
+    * **Mission 3 (The Trade-Off Dilemma):** As city planners, you have limited police and digital signage resources. When a crisis happens, is it better to optimize speed or prioritize safety? Defend your choice using the bubble chart data!
     """)
