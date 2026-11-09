@@ -147,11 +147,9 @@ if log_button:
     st.session_state.decision_log.append(log_entry)
     st.sidebar.success(f"Trial {trial_num} logged successfully!")
 
-# --- ORGANIZE INTO TABS ---
-tab1, tab2, tab3, tab4 = st.tabs([
+# --- ORGANIZE INTO STREAMLINED TABS ---
+tab1, tab2 = st.tabs([
     "🚦 Live Route Status", 
-    "📊 Delay vs. Safety Analysis", 
-    "🌱 Environmental & Emissions", 
     "📋 Student Decision Log & Graphs"
 ])
 
@@ -170,46 +168,8 @@ with tab1:
             st.metric(label="Est. CO2 Emissions", value=f"{df.loc[i, 'Total_Emissions_Co2']:.1f} kg")
             st.markdown("---")
 
-# --- TAB 2: DELAY VS SAFETY ANALYSIS ---
+# --- TAB 2: STUDENT DECISION LOG & GRAPHS ---
 with tab2:
-    st.subheader("System Trade-Off Analysis: Delay vs. Safety Risk")
-    fig = px.scatter(
-        df, 
-        x="Simulated_Travel_Time", 
-        y="Safety_Risk_Score", 
-        size="Congestion_Percentage", 
-        color="Route",
-        hover_name="Route",
-        text="Route",
-        labels={"Simulated_Travel_Time": "Travel Time (Minutes)", "Safety_Risk_Score": "Safety Risk Index"},
-        title="Network Performance (Bubble size = Congestion Level)"
-    )
-    fig.update_traces(textposition='top center')
-    fig.update_layout(height=500)
-    st.plotly_chart(fig, use_container_width=True)
-
-# --- TAB 3: ENVIRONMENTAL & EMISSIONS ---
-with tab3:
-    st.subheader("🌱 Environmental Impact & Carbon Output")
-    st.markdown("Stop-and-go traffic and severe congestion drastically increase fuel consumption and greenhouse gas emissions ($CO_2$).")
-    
-    fig_co2 = px.bar(
-        df, 
-        x="Route", 
-        y="Total_Emissions_Co2", 
-        color="Route",
-        text_auto=".1f",
-        labels={"Total_Emissions_Co2": "Total CO2 Emissions (kg)", "Route": "Transportation Route"},
-        title="Carbon Output Breakdown by Route Under Current Conditions"
-    )
-    fig_co2.update_layout(height=450, showlegend=False)
-    st.plotly_chart(fig_co2, use_container_width=True)
-    
-    total_city_co2 = df['Total_Emissions_Co2'].sum()
-    st.metric(label="Total Network Carbon Footprint", value=f"{total_city_co2:.1f} kg CO2")
-
-# --- TAB 4: STUDENT DECISION LOG & GRAPHS ---
-with tab4:
     st.subheader("📋 Student Decision Log & Strategy Comparison")
     
     if len(st.session_state.decision_log) > 0:
